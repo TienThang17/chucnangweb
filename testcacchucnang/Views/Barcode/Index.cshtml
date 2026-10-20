@@ -1,0 +1,165 @@
+﻿
+@{
+    ViewBag.Title = "Tạo mã vạch";
+}
+
+<div class="container">
+    <h2>Tạo mã vạch</h2>
+
+    <div class="form-group">
+        <label for="barcodeValue">Nội dung</label>
+        <input id="barcodeValue"
+               class="form-control"
+               value="MONAN001"
+               maxlength="100" />
+    </div>
+
+    <div class="form-group">
+        <label for="barcodeFormat">Định dạng</label>
+        <select id="barcodeFormat" class="form-control">
+            <option value="CODE128">CODE128</option>
+            <option value="CODE39">CODE39</option>
+            <option value="EAN13">EAN-13</option>
+        </select>
+    </div>
+
+    <button id="btnGenerate" class="btn btn-primary">
+        Tạo mã vạch
+    </button>
+
+    <div style="margin-top: 20px;">
+        <svg id="barcode"></svg>
+    </div>
+
+    <p id="errorMessage" class="text-danger"></p>
+
+    <button id="btnDownload" class="btn btn-success">
+        Tải PNG
+    </button>
+
+    <button id="btnPrint" class="btn btn-default">
+        In mã vạch
+    </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.12.1/dist/JsBarcode.all.min.js"></script>
+
+<script>
+        const input = document.getElementById("barcodeValue");
+        const format = document.getElementById("barcodeFormat");
+        const svg = document.getElementById("barcode");
+        const error = document.getElementById("errorMessage");
+
+        function generateBarcode() {
+            const value = input.value.trim();
+            error.textContent = "";
+
+            if (!value) {
+                error.textContent = "Vui lòng nhập nội dung.";
+                svg.replaceChildren();
+                return false;
+            }
+
+            try {
+                JsBarcode(svg, value, {
+                    format: format.value,
+                    width: 2,
+                    height: 90,
+                    displayValue: true,
+                    margin: 10,
+                    background: "#ffffff",
+                    lineColor: "#000000"
+                });
+
+                return true;
+            } catch (e) {
+                svg.replaceChildren();
+                error.textContent =
+                    "Không tạo được mã. Hãy kiểm tra nội dung và định dạng.";
+                return false;
+            }
+        }
+
+        document.getElementById("btnGenerate")
+            .addEventListener("click", generateBarcode);
+
+        document.getElementById("btnDownload")
+            .addEventListener("click", function () {
+                if (!generateBarcode()) return;
+
+                const svgData = new XMLSerializer()
+                    .serializeToString(svg);
+
+                const blob = new Blob(
+                    [svgData],
+                    { type: "image/svg+xml;charset=utf-8" }
+                );
+
+                const url = URL.createObjectURL(blob);
+                const image = new Image();
+
+                image.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = image.naturalWidth * 2;
+                    canvas.height = image.naturalHeight * 2;
+
+                    const ctx = canvas.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                    canvas.toBlob(function (png) {
+                        if (png) {
+                            const link = document.createElement("a");
+                            const pngUrl = URL.createObjectURL(png);
+
+                            link.href = pngUrl;
+                            link.download = "barcode.png";
+                            link.click();
+
+                            setTimeout(function () {
+                                URL.revokeObjectURL(pngUrl);
+                            }, 1000);
+                        }
+
+                        URL.revokeObjectURL(url);
+                    }, "image/png");
+                };
+
+                image.onerror = function () {
+                    URL.revokeObjectURL(url);
+                    error.textContent = "Không thể xuất ảnh.";
+                };
+
+                image.src = url;
+            });
+
+        document.getElementById("btnPrint")
+            .addEventListener("click", function () {
+                if (!generateBarcode()) return;
+
+                const printWindow = window.open("", "_blank");
+
+                if (!printWindow) {
+                    error.textContent =
+                        "Trình duyệt đã chặn cửa sổ in.";
+                    return;
+                }
+
+                const markup = new XMLSerializer()
+                    .serializeToString(svg);
+
+                printWindow.document.open();
+                printWindow.document.write(
+                    "<!doctype html><html><head><title>In mã vạch</title>" +
+                    "<style>body{text-align:center;margin:30px}" +
+                    "svg{max-width:100%;height:auto}</style></head><body>" +
+                    markup +
+                    "<script>window.onload=function(){window.print();};" +
+                    "<\/script></body></html>"
+                );
+                printWindow.document.close();
+            });
+
+        generateBarcode();
+</script>

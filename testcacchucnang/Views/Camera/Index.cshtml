@@ -1,0 +1,119 @@
+﻿
+@{
+    ViewBag.Title = "Quét mã QR và mã vạch";
+}
+
+<div class="container">
+    <h2>Quét mã QR / Barcode</h2>
+
+    <p>
+        Nhấn bắt đầu và đưa mã vào vùng camera.
+    </p>
+
+    <div id="reader" style="max-width: 500px;"></div>
+
+    <div style="margin-top: 20px;">
+        <label for="scanResult">Nội dung mã:</label>
+        <input id="scanResult"
+               class="form-control"
+               type="text"
+               readonly />
+
+        <p id="scanMessage" style="margin-top: 10px;"></p>
+
+        <button type="button"
+                id="btnRestart"
+                class="btn btn-primary">
+            Quét lại
+        </button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+        const resultInput = document.getElementById("scanResult");
+        const message = document.getElementById("scanMessage");
+        const restartButton = document.getElementById("btnRestart");
+
+        const formats = [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ];
+
+        const scanner = new Html5Qrcode("reader", {
+            formatsToSupport: formats
+        });
+
+        let isRunning = false;
+        let isProcessing = false;
+
+        async function startScanner() {
+            if (isRunning) return;
+
+            try {
+                message.textContent = "Đang mở camera...";
+
+                await scanner.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: function (width, height) {
+                            return {
+                                width: Math.min(300, width * 0.9),
+                                height: Math.min(180, height * 0.6)
+                            };
+                        }
+                    },
+                    async function (decodedText) {
+                        if (isProcessing) return;
+
+                        isProcessing = true;
+                        resultInput.value = decodedText;
+                        message.textContent = "Đã đọc mã thành công.";
+
+                        try {
+                            await scanner.stop();
+                            isRunning = false;
+                        } catch (error) {
+                            console.error(error);
+                        }
+                    },
+                    function () {
+                        // Không tìm thấy mã trong khung hình hiện tại.
+                        // Đây là trạng thái bình thường khi đang quét.
+                    }
+                );
+
+                isRunning = true;
+                message.textContent = "Đang quét...";
+            } catch (error) {
+                message.textContent =
+                    "Không mở được camera: " + error;
+            }
+        }
+
+        restartButton.addEventListener("click", async function () {
+            if (isRunning) {
+                try {
+                    await scanner.stop();
+                    isRunning = false;
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+
+            resultInput.value = "";
+            isProcessing = false;
+
+            await startScanner();
+        });
+
+        // Chỉ mở camera sau khi người dùng nhấn nút
+        // trong giao diện của thư viện.
+</script>
